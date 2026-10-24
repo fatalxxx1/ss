@@ -1,4 +1,6 @@
-if game.PlaceId == 132929771812494 then
+local place = game.PlaceId
+
+if place == 132929771812494 or place == 114068177100380 then
 
     getgenv().Replaying = false
 
