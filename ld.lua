@@ -183,10 +183,6 @@ if place == 132929771812494 or place == 114068177100380 then
         Desc = "Press this button start record",
         Locked = false,
         Callback = function()
-            if getgenv().Replaying == true then
-                popup("Error", "SCRIPT IS RUNNING")
-                return
-            end
 
             if not isJson(selectedFile) then
                 WindUI:Notify({
