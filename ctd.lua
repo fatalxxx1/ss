@@ -1,3 +1,7 @@
+--[[THIS IS OPEN SOURCE FOR UI SUPPORT WE STILL PROTECT OUR MAIN CODE]]
+
+
+
 local Folder = "WDMacro"
 
 local HTTPS = game:GetService('HttpService')
