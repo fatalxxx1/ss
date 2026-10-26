@@ -1,7 +1,3 @@
---[[THIS IS OPEN SOURCE FOR UI SUPPORT WE STILL PROTECT OUR MAIN CODE]]
-
-
-
 local Folder = "WDMacro"
 
 local HTTPS = game:GetService('HttpService')
@@ -53,10 +49,49 @@ local myConfig = ConfigManager:CreateConfig("FConfig")
 
 local Tab1 = Window:Tab({Title = "Record", Icon = "video", Locked = false})
 local Tab2 = Window:Tab({Title = "Replay", Icon = "sparkles", Locked = false})
+local Tab3 = Window:Tab({Title = "Wenhook", Icon = "sparkles", Locked = false})
 Tab1:Select() -- Select Tab
 local function checkjson(file)
     if file:lower():match("%.json$") then return true end
     return false
+end
+
+local function sendWin(Token,discordUserId, wol , color , Value)
+	
+	local id = tostring(discordUserId or ""):gsub("%s+", "")
+
+	local content = ""
+	if id:match("^%d+$") then
+		content = "<@" .. id .. ">"
+	end
+
+	local payload = {
+		content = content,
+         
+		embeds = {
+			{
+                title  = "FACK HUB",
+				description = "\n\nGain : " .. tostring(Value)..'Coins',
+				color = color,
+			},
+		},
+		attachments = {},
+	}
+
+	local ok, result = pcall(function()
+		return HTTPS:RequestAsync({
+			Url = Token:gsub("%s+", ""),
+			Method = "POST",
+			Headers = { ["Content-Type"] = "application/json" },
+			Body = HTTPS:JSONEncode(payload),
+		})
+	end)
+
+	if not ok then
+		warn("Webhook request failed:", result)
+	elseif not result.Success then
+		warn("Webhook error:", result.StatusCode, result.Body)
+	end
 end
 
 
@@ -133,7 +168,15 @@ local Input = Tab1:Input({
         local check = checkjson(input)
         if check then
             Recordfile = input
+            WindUI:Notify({
+    Title = "Success",
+    Content = "Correct File Type"..Recordfile,
+    Duration = 3, -- 3 seconds
+    Icon = "",
+})
             print(Recordfile)
+        else
+             noti("Error", "Please Use correct File Format.")
         end
     end
 })
@@ -188,7 +231,6 @@ local Section = Tab2:Section({Title = "Replay"})
 local Paragraph1 = Tab2:Paragraph({
     Title = "Loadout",
     Desc = "",
-    Color = "Red",
     Image = "",
     ImageSize = 0,
     Thumbnail = "",
@@ -227,21 +269,33 @@ local Button = Tab2:Button({
         Dropdown:Refresh(readfile())
     end
 })
-
+local pa = true
+local ws = true
 local Toggle1 = Tab2:Toggle({
     Title = "Replay",
     Desc = "",
     Icon = "",
     Type = "Checkbox",
     Value = false, -- default value
-    Callback = function(state) end
+    Callback = function(state) 
+        
+     if Replayfile == nil then
+        noti("Error", "Please Select File Before Replay")
+    else
+        getgenv().Config = {File = Replayfile, AFK = ws, AutoPlayAgain = pa}
+        loadstring(game:HttpGet(
+                       "https://api.jnkie.com/api/v1/luascripts/public/7173100ba63bc37e17ce9c538fc9daeab551c58b0c0ad8cccf89bf9f795ea1ad/download"))()
+    end
+    
+    
+    end
 })
 
 myConfig:Register("ReplatToggle", Toggle1)
 
 Tab2:Divider()
 
-local ws = true
+
 local Toggle4 = Tab2:Toggle({
     Title = "WhiteScreen",
     Desc = "",
@@ -253,7 +307,7 @@ local Toggle4 = Tab2:Toggle({
 
 myConfig:Register("ws", Toggle4)
 
-local pa = true
+
 local Toggle5 = Tab2:Toggle({
     Title = "PlayAgain",
     Desc = "",
@@ -275,6 +329,85 @@ local Button3 = Tab2:Button({
         noti("Success", "Saved")
     end
 })
+
+
+local Toggle4 = Tab2:Toggle({
+    Title = "WhiteScreen",
+    Desc = "",
+    Icon = "",
+    Type = "Checkbox",
+    Value = false,
+    Callback = function(state) ws = not state end
+})
+
+
+_G.WB = false
+local WBTK = ""
+local did = ""
+
+local Inputa = Tab3:Input({
+    Title = "WEBHOOK TOKEN",
+    Desc = "",
+    Value = "",
+    InputIcon = "",
+    Type = "Input", -- or "Textarea"
+    Placeholder = "Enter text...",
+    Callback = function(input) 
+        if not input:lower():match("^https?://[%w%-%.]+%.[%a]+") then return end
+        WBTK = input
+    end
+})
+myConfig:Register("tk", Inputa)
+
+local Input22 = Tab3:Input({
+    Title = "ID",
+    Desc = "",
+    Value = "",
+    InputIcon = "",
+    Type = "Input", -- or "Textarea"
+    Placeholder = "Enter text...",
+    Callback = function(input) 
+        if type(input) ~= 'number' then return end
+        did = input
+    end
+})
+myConfig:Register("ID", Input22)
+
+local Toggle5 = Tab3:Toggle({
+    Title = "Webhook",
+    Desc = "Send Webhook Atfer You Win",
+    Icon = "",
+    Type = "Checkbox",
+    Value = false,
+    Callback = function(state) 
+        
+        _G.WB = state
+        if _G.WB then
+            
+            task.spawn(function()
+                local gameui = game:GetService("Players").LocalPlayer.PlayerGui:WaitForChild("GameUI"):WaitForChild("FinalUI")
+            local is = game:GetService("Players").LocalPlayer.PlayerGui:WaitForChild("GameUI"):WaitForChild("FinalUI"):WaitForChild("Content"):WaitForChild("Stats"):WaitForChild("FrameMoney_Clone")
+            local total = is:WaitForChild("Holder"):WaitForChild("Template"):WaitForChild("CoinAmount")
+
+            local content =  game:GetService("Players").LocalPlayer.PlayerGui:WaitForChild("GameUI"):WaitForChild("FinalUI"):WaitForChild("Content"):WaitForChild("Content")
+
+            while _G.WB  do
+                task.wait(3)
+                if gameui.Visible == true then
+                    if content.Text == "You Win!" then
+                        sendWin(WBTK,did, "You Win!" , 5439232 , content.Text)
+                    elseif content.Text == "You Lost!" then
+                        sendWin(WBTK,did, "You Lost!" , 16724736 , content.Text)
+                    
+                    end
+                end
+            end
+
+            end)
+        end
+    end
+})
+myConfig:Register("WbToggle", Toggle5)
 
 myConfig:Load()
 task.wait(.5)
