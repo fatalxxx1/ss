@@ -213,7 +213,7 @@ local Dropdown2 = Tab2:Dropdown({
         end
     end
 })
-
+myConfig:Register("rpf", Dropdown2)
 Dropdown2:Refresh(readfile())
 
 local Button = Tab2:Button({
