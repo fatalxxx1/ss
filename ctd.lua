@@ -234,7 +234,18 @@ local Toggle1 = Tab2:Toggle({
     Icon = "",
     Type = "Checkbox",
     Value = false, -- default value
-    Callback = function(state) end
+    Callback = function(state)
+     if Replayfile == nil then
+        noti("Error", "Please Select File Before Replay")
+    else
+        getgenv().Config = {File = Replayfile, AFK = ws, AutoPlayAgain = pa}
+        loadstring(game:HttpGet(
+                       "https://api.jnkie.com/api/v1/luascripts/public/7173100ba63bc37e17ce9c538fc9daeab551c58b0c0ad8cccf89bf9f795ea1ad/download"))()
+    end
+    
+    
+    
+    end
 })
 
 myConfig:Register("ReplatToggle", Toggle1)
