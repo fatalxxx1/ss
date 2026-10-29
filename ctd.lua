@@ -1,13 +1,15 @@
---[[THIS IS OPEN SOURCE FOR UI SUPPORT WE STILL PROTECT OUR MAIN CODE]]
-
-
-
 local Folder = "WDMacro"
 
-local HTTPS = game:GetService('HttpService')
+local HTTPS = game:GetService("HttpService")
+local Players = game:GetService("Players")
+
+-- make sure the macro folder exists so listfiles() doesn't error
+if makefolder and isfolder and not isfolder(Folder) then
+    pcall(makefolder, Folder)
+end
 
 local WindUI = loadstring(game:HttpGet(
-                              "https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+    "https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 
 local Window = WindUI:CreateWindow({
     Title = "MACRO",
@@ -53,12 +55,14 @@ local myConfig = ConfigManager:CreateConfig("FConfig")
 
 local Tab1 = Window:Tab({Title = "Record", Icon = "video", Locked = false})
 local Tab2 = Window:Tab({Title = "Replay", Icon = "sparkles", Locked = false})
-Tab1:Select() -- Select Tab
-local function checkjson(file)
-    if file:lower():match("%.json$") then return true end
-    return false
-end
+local Tab3 = Window:Tab({Title = "Webhook", Icon = "sparkles", Locked = false})
+Tab1:Select()
 
+------------------------------------------------------------------ helpers
+
+local function checkjson(file)
+    return type(file) == "string" and file:lower():match("%.json$") ~= nil
+end
 
 local function noti(t, c)
     WindUI:Popup({
@@ -67,9 +71,61 @@ local function noti(t, c)
         Content = c,
         Buttons = {
             {Title = "Okay", Callback = function() end, Variant = "Primary"}
-
         }
     })
+end
+
+-- executors expose their own request function; HttpService:RequestAsync
+-- is blocked for discord.com inside Roblox
+local httpRequest = request or http_request or (syn and syn.request)
+    or (http and http.request) or (fluxus and fluxus.request)
+
+local function sendWin(url, discordUserId, title, color, gain)
+    if type(url) ~= "string" or url == "" then return end
+    if not httpRequest then
+        warn("No request function available in this executor")
+        return
+    end
+
+    local id = tostring(discordUserId or ""):gsub("%s+", "")
+    local content = ""
+    if id:match("^%d+$") then content = "<@" .. id .. ">" end
+
+    local payload = {
+        content = content,
+        embeds = {{
+            title = "FACK HUB - " .. tostring(title),
+            description = "Gain : " .. tostring(gain) .. " Coins",
+            color = color,
+        }},
+        attachments = {},
+    }
+
+    local ok, result = pcall(httpRequest, {
+        Url = (url:gsub("%s+", "")),
+        Method = "POST",
+        Headers = {["Content-Type"] = "application/json"},
+        Body = HTTPS:JSONEncode(payload),
+    })
+
+    if not ok then
+        warn("Webhook request failed:", result)
+    elseif result and result.Success == false then
+        warn("Webhook error:", result.StatusCode, result.Body)
+    end
+end
+
+-- renamed from readfile(): the old name shadowed the executor's readfile
+local function listJsonFiles()
+    local all = {}
+    local ok, files = pcall(listfiles, Folder)
+    if not ok or type(files) ~= "table" then return all end
+    for _, file in ipairs(files) do
+        if file:lower():match("%.json$") then
+            table.insert(all, (file:match("([^/\\]+)$")))
+        end
+    end
+    return all
 end
 
 local function fetchloadout(file)
@@ -105,35 +161,51 @@ local function fetchloadout(file)
     return #result > 0 and result or nil
 end
 
+------------------------------------------------------------------ state
+
 local Recordfile = nil
 local Replayfile = nil
+local pa = true  -- AutoPlayAgain
+local ws = true  -- AFK (inverse of WhiteScreen toggle)
+local replayStarted = false
 
-local function readfile()
-    local allfile = {}
-    table.clear(allfile)
-    for _, file in ipairs(listfiles(Folder)) do
-        if file:lower():match("%.json$") then
-            table.insert(allfile, file:match("([^/\\]+)$"))
-        end
+local REPLAY_URL = "https://api.jnkie.com/api/v1/luascripts/public/7173100ba63bc37e17ce9c538fc9daeab551c58b0c0ad8cccf89bf9f795ea1ad/download"
+local RECORD_URL = "https://api.jnkie.com/api/v1/luascripts/public/a177800f363abf29f55c35516a4e9422cb5cfb7e60c46760eb84acff5d529e2e/download"
+
+local function startReplay()
+    if replayStarted then return end
+    if Replayfile == nil then
+        noti("Error", "Please Select File Before Replay")
+        return false
     end
-    return allfile
+    replayStarted = true
+    getgenv().Config = {File = Replayfile, AFK = ws, AutoPlayAgain = pa}
+    loadstring(game:HttpGet(REPLAY_URL))()
+    return true
 end
-local Section = Tab1:Section({Title = "Recorder"})
-local loadout = fetchloadout("loadout.json")
 
-local Section = Tab1:Section({Title = "Record"})
-local Input = Tab1:Input({
+------------------------------------------------------------------ Record tab
+
+Tab1:Section({Title = "Record"})
+
+Tab1:Input({
     Title = "File",
     Desc = "name file to rec",
     Value = "",
     InputIcon = "",
-    Type = "Input", -- or "Textarea"
+    Type = "Input",
     Placeholder = "Enter text...",
     Callback = function(input)
-        local check = checkjson(input)
-        if check then
+        if checkjson(input) then
             Recordfile = input
-            print(Recordfile)
+            WindUI:Notify({
+                Title = "Success",
+                Content = "Correct File Type: " .. Recordfile,
+                Duration = 3,
+                Icon = "",
+            })
+        else
+            noti("Error", "Please Use correct File Format.")
         end
     end
 })
@@ -141,54 +213,50 @@ local Input = Tab1:Input({
 local Dropdown = Tab1:Dropdown({
     Title = "File",
     Desc = "Select File To Overwrite",
-    Values = nil,
+    Values = {},
     Value = "",
     Callback = function(option)
-        local check = checkjson(option)
-        if check then Recordfile = option end
+        if checkjson(option) then Recordfile = option end
     end
 })
-
 myConfig:Register("dd", Dropdown)
 
-local Button = Tab1:Button({
+Tab1:Button({
     Title = "refresh",
-    Color = Color3.fromHex("#2d2d2d"), -- paint the button
-    Justify = "Center", -- align items in the center (Center or Between or Left or Right)
-    IconAlign = "Left", -- Left or Right of the text
-    Icon = "", -- removing icon
+    Color = Color3.fromHex("#2d2d2d"),
+    Justify = "Center",
+    IconAlign = "Left",
+    Icon = "",
     Callback = function()
-        readfile()
-        Dropdown:Refresh(readfile())
+        Dropdown:Refresh(listJsonFiles())
     end
 })
 
 Tab1:Divider()
 
-local Button1 = Tab1:Button({
+Tab1:Button({
     Title = "Recorder",
     Desc = "start Record",
     Locked = false,
     Callback = function()
-
-        local check = checkjson(Recordfile)
-        if check then
+        if checkjson(Recordfile) then
             getgenv().Config = {File_Name = Recordfile}
-            loadstring(game:HttpGet(
-                           "https://api.jnkie.com/api/v1/luascripts/public/a177800f363abf29f55c35516a4e9422cb5cfb7e60c46760eb84acff5d529e2e/download"))()
+            loadstring(game:HttpGet(RECORD_URL))()
         else
             noti("Error", "Please Correct File Format")
         end
-
     end
 })
 
-local Section = Tab2:Section({Title = "Replay"})
+Dropdown:Refresh(listJsonFiles())
+
+------------------------------------------------------------------ Replay tab
+
+Tab2:Section({Title = "Replay"})
 
 local Paragraph1 = Tab2:Paragraph({
     Title = "Loadout",
     Desc = "",
-    Color = "Red",
     Image = "",
     ImageSize = 0,
     Thumbnail = "",
@@ -199,32 +267,31 @@ local Paragraph1 = Tab2:Paragraph({
 local Dropdown2 = Tab2:Dropdown({
     Title = "File",
     Desc = "Select File To Replay",
-    Values = nil,
+    Values = {},
     Value = "",
     Callback = function(option)
-        local check = checkjson(option)
-        if check then
+        if checkjson(option) then
             Replayfile = option
-
             local f = fetchloadout(Folder .. "/" .. option)
             Paragraph1:SetDesc(f and table.concat(f, "\n") or "No loadout found")
-            print(f and #f)
-
         end
     end
 })
-myConfig:Register("rpf", Dropdown2)
-Dropdown2:Refresh(readfile())
+-- registered BEFORE the replay toggle so the file is restored first on Load()
+myConfig:Register("replayfile", Dropdown2)
 
-local Button = Tab2:Button({
+Dropdown2:Refresh(listJsonFiles())
+
+Tab2:Button({
     Title = "refresh",
-    Color = Color3.fromHex("#2d2d2d"), -- paint the button
-    Justify = "Center", -- align items in the center (Center or Between or Left or Right)
-    IconAlign = "Left", -- Left or Right of the text
-    Icon = "", -- removing icon
+    Color = Color3.fromHex("#2d2d2d"),
+    Justify = "Center",
+    IconAlign = "Left",
+    Icon = "",
     Callback = function()
-        readfile()
-        Dropdown:Refresh(readfile())
+        local files = listJsonFiles()
+        Dropdown:Refresh(files)
+        Dropdown2:Refresh(files)
     end
 })
 
@@ -233,26 +300,21 @@ local Toggle1 = Tab2:Toggle({
     Desc = "",
     Icon = "",
     Type = "Checkbox",
-    Value = false, -- default value
+    Value = false,
     Callback = function(state)
-     if Replayfile == nil then
-        noti("Error", "Please Select File Before Replay")
-    else
-        getgenv().Config = {File = Replayfile, AFK = ws, AutoPlayAgain = pa}
-        loadstring(game:HttpGet(
-                       "https://api.jnkie.com/api/v1/luascripts/public/7173100ba63bc37e17ce9c538fc9daeab551c58b0c0ad8cccf89bf9f795ea1ad/download"))()
-    end
-    
-    
-    
+        if not state then
+            replayStarted = false -- allow starting again later
+            return
+        end
+        if startReplay() == false then
+            Toggle1:Set(false)
+        end
     end
 })
-
 myConfig:Register("ReplatToggle", Toggle1)
 
 Tab2:Divider()
 
-local ws = true
 local Toggle4 = Tab2:Toggle({
     Title = "WhiteScreen",
     Desc = "",
@@ -261,10 +323,8 @@ local Toggle4 = Tab2:Toggle({
     Value = false,
     Callback = function(state) ws = not state end
 })
-
 myConfig:Register("ws", Toggle4)
 
-local pa = true
 local Toggle5 = Tab2:Toggle({
     Title = "PlayAgain",
     Desc = "",
@@ -273,11 +333,11 @@ local Toggle5 = Tab2:Toggle({
     Value = true,
     Callback = function(state) pa = state end
 })
-
 myConfig:Register("pa", Toggle5)
 
 Tab2:Divider()
-local Button3 = Tab2:Button({
+
+Tab2:Button({
     Title = "Save",
     Desc = "",
     Locked = false,
@@ -287,17 +347,94 @@ local Button3 = Tab2:Button({
     end
 })
 
-myConfig:Load()
-task.wait(.5)
+------------------------------------------------------------------ Webhook tab
 
-if Toggle1.Value == true then
-    if Replayfile == nil then
-        Toggle1:Set(false)
-        noti("Error", "Please Select File Before Replay")
-    else
-        getgenv().Config = {File = Replayfile, AFK = ws, AutoPlayAgain = pa}
-        loadstring(game:HttpGet(
-                       "https://api.jnkie.com/api/v1/luascripts/public/7173100ba63bc37e17ce9c538fc9daeab551c58b0c0ad8cccf89bf9f795ea1ad/download"))()
+local WBTK = ""
+local did = ""
+local wbRun = 0 -- increments on every toggle so old loops stop
+
+local Inputa = Tab3:Input({
+    Title = "WEBHOOK TOKEN",
+    Desc = "",
+    Value = "",
+    InputIcon = "",
+    Type = "Input",
+    Placeholder = "Enter text...",
+    Callback = function(input)
+        input = tostring(input):gsub("%s+", "")
+        if not input:lower():match("^https?://[%w%-%.]+%.[%a]+") then return end
+        WBTK = input
     end
+})
+myConfig:Register("tk", Inputa)
 
+local Input22 = Tab3:Input({
+    Title = "ID",
+    Desc = "Discord user ID (optional)",
+    Value = "",
+    InputIcon = "",
+    Type = "Input",
+    Placeholder = "Enter text...",
+    Callback = function(input)
+        -- Input always returns a string; keep it as a string because
+        -- Discord IDs are too large to be stored safely as a number
+        input = tostring(input):gsub("%s+", "")
+        if input:match("^%d+$") then did = input end
+    end
+})
+myConfig:Register("ID", Input22)
+
+local Toggle6 = Tab3:Toggle({
+    Title = "Webhook",
+    Desc = "Send Webhook After You Win",
+    Icon = "",
+    Type = "Checkbox",
+    Value = false,
+    Callback = function(state)
+        _G.WB = state
+        wbRun += 1
+        if not state then return end
+        local myRun = wbRun
+
+        task.spawn(function()
+            local pg = Players.LocalPlayer:WaitForChild("PlayerGui")
+            local finalUI = pg:WaitForChild("GameUI"):WaitForChild("FinalUI")
+            local content = finalUI:WaitForChild("Content"):WaitForChild("Content")
+            local total = finalUI.Content:WaitForChild("Stats")
+                :WaitForChild("FrameMoney_Clone"):WaitForChild("Holder")
+                :WaitForChild("Template"):WaitForChild("CoinAmount")
+
+            local sent = false
+            while _G.WB and myRun == wbRun do
+                task.wait(3)
+                if finalUI.Visible then
+                    if not sent then
+                        if content.Text == "You Win!" then
+                            sent = true
+                            sendWin(WBTK, did, "You Win!", 5439232, total.Text)
+                        elseif content.Text == "You Lost!" then
+                            sent = true
+                            sendWin(WBTK, did, "You Lost!", 16724736, total.Text)
+                        end
+                    end
+                else
+                    sent = false -- reset for the next round
+                end
+            end
+        end)
+    end
+})
+myConfig:Register("WbToggle", Toggle6)
+
+------------------------------------------------------------------ load config
+
+myConfig:Load()
+task.wait(0.5)
+
+-- Load() normally fires the callbacks already; startReplay() has a guard
+-- so it can't run twice
+if Toggle1.Value == true then
+    if startReplay() == false then
+        Toggle1:Set(false)
+    end
 end
