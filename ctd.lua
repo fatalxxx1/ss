@@ -55,7 +55,7 @@ local myConfig = ConfigManager:CreateConfig("FConfig")
 
 local Tab1 = Window:Tab({Title = "Record", Icon = "video", Locked = false})
 local Tab2 = Window:Tab({Title = "Replay", Icon = "sparkles", Locked = false})
-local Tab3 = Window:Tab({Title = "Webhook", Icon = "sparkles", Locked = false})
+local Tab3 = Window:Tab({Title = "Webhook", Icon = "sparkles", Locked = true})
 Tab1:Select()
 
 ------------------------------------------------------------------ helpers
