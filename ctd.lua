@@ -351,7 +351,7 @@ Tab2:Button({
 ------------------------------------------------------------------ load config
 
 myConfig:Load()
-task.wait(0.5)
+task.wait(2.5)
 
 -- Load() normally fires the callbacks already; startReplay() has a guard
 -- so it can't run twice
