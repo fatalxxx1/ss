@@ -55,7 +55,7 @@ local myConfig = ConfigManager:CreateConfig("FConfig")
 
 local Tab1 = Window:Tab({Title = "Record", Icon = "video", Locked = false})
 local Tab2 = Window:Tab({Title = "Replay", Icon = "sparkles", Locked = false})
-local Tab3 = Window:Tab({Title = "Webhook", Icon = "sparkles", Locked = true})
+local Tab3 = Window:Tab({Title = "Webhook", Icon = "sparkles", Locked = false})
 Tab1:Select()
 
 ------------------------------------------------------------------ helpers
@@ -296,8 +296,8 @@ Tab2:Button({
 })
 
 local Toggle1 = Tab2:Toggle({
-    Title = "Replay",
-    Desc = "",
+    Title = "Auto Replay",
+    Desc = "Auto Replay When Script Executed",
     Icon = "",
     Type = "Checkbox",
     Value = false,
@@ -306,12 +306,20 @@ local Toggle1 = Tab2:Toggle({
             replayStarted = false -- allow starting again later
             return
         end
-        if startReplay() == false then
-            Toggle1:Set(false)
-        end
     end
 })
 myConfig:Register("ReplatToggle", Toggle1)
+
+Tab2:Button({
+    Title = "Manual Replay",
+    Color = Color3.fromHex("#2d2d2d"),
+    Justify = "Center",
+    IconAlign = "Left",
+    Icon = "",
+    Callback = function()
+        startReplay()
+    end
+})
 
 Tab2:Divider()
 
@@ -351,7 +359,7 @@ Tab2:Button({
 ------------------------------------------------------------------ load config
 
 myConfig:Load()
-task.wait(2.5)
+task.wait(1.5)
 
 -- Load() normally fires the callbacks already; startReplay() has a guard
 -- so it can't run twice
