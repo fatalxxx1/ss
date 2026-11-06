@@ -1,11 +1,15 @@
-local Folder = "WDMacro"
 
+local Folder = "FHMacro"
+local CTDFolder = "CTD"
 local HTTPS = game:GetService("HttpService")
 local Players = game:GetService("Players")
 
 -- make sure the macro folder exists so listfiles() doesn't error
 if makefolder and isfolder and not isfolder(Folder) then
     pcall(makefolder, Folder)
+end
+if makefolder and isfolder and not isfolder(CTDFolder) then
+    pcall(makefolder, CTDFolder)
 end
 
 local WindUI = loadstring(game:HttpGet(
@@ -58,6 +62,34 @@ local Tab2 = Window:Tab({Title = "Replay", Icon = "sparkles", Locked = false})
 local Tab3 = Window:Tab({Title = "Webhook", Icon = "sparkles", Locked = false})
 Tab1:Select()
 
+
+-- for i, path in ipairs(listfiles(OldFolder)) do
+--     if isfile(path) then
+--         local name = path:match("([^/\\]+)$")
+--         local newPath = NewFolder .. "/" .. name
+
+--         local ok, err = pcall(function()
+--             writefile(newPath, readfile(path))
+--             delfile(path)
+--         end)
+
+--         if ok then
+--             print(i, "moved:", name)
+--         else
+--             warn(i, "failed:", name, err)
+--         end
+--     end
+-- end
+
+WindUI:Popup({
+        Title = t,
+        Icon = "info",
+        Content = c,
+        Buttons = {
+            {Title = "Okay", Callback = function() end, Variant = "Primary"}
+        }
+    })
+
 ------------------------------------------------------------------ helpers
 
 local function checkjson(file)
@@ -78,7 +110,7 @@ end
 -- executors expose their own request function; HttpService:RequestAsync
 -- is blocked for discord.com inside Roblox
 local httpRequest = request or http_request or (syn and syn.request)
-    or (http and http.request) or (fluxus and fluxus.request)
+    or (http and http.request) 
 
 local function sendWin(url, discordUserId, title, color, gain)
     if type(url) ~= "string" or url == "" then return end
@@ -118,7 +150,7 @@ end
 -- renamed from readfile(): the old name shadowed the executor's readfile
 local function listJsonFiles()
     local all = {}
-    local ok, files = pcall(listfiles, Folder)
+    local ok, files = pcall(listfiles, CTDFolder)
     if not ok or type(files) ~= "table" then return all end
     for _, file in ipairs(files) do
         if file:lower():match("%.json$") then
@@ -272,7 +304,7 @@ local Dropdown2 = Tab2:Dropdown({
     Callback = function(option)
         if checkjson(option) then
             Replayfile = option
-            local f = fetchloadout(Folder .. "/" .. option)
+            local f = fetchloadout(CTDFolder .. "/" .. option)
             Paragraph1:SetDesc(f and table.concat(f, "\n") or "No loadout found")
         end
     end
