@@ -1,4 +1,4 @@
-
+local OldFolder = "WDMacro"
 local Folder = "FHMacro"
 local CTDFolder = "CTD"
 local HTTPS = game:GetService("HttpService")
@@ -59,36 +59,12 @@ local myConfig = ConfigManager:CreateConfig("FConfig")
 
 local Tab1 = Window:Tab({Title = "Record", Icon = "video", Locked = false})
 local Tab2 = Window:Tab({Title = "Replay", Icon = "sparkles", Locked = false})
-local Tab3 = Window:Tab({Title = "Webhook", Icon = "sparkles", Locked = false})
+local Tab3 = Window:Tab({Title = "Webhook", Icon = "sparkles", Locked = true})
 Tab1:Select()
 
 
--- for i, path in ipairs(listfiles(OldFolder)) do
---     if isfile(path) then
---         local name = path:match("([^/\\]+)$")
---         local newPath = NewFolder .. "/" .. name
 
---         local ok, err = pcall(function()
---             writefile(newPath, readfile(path))
---             delfile(path)
---         end)
 
---         if ok then
---             print(i, "moved:", name)
---         else
---             warn(i, "failed:", name, err)
---         end
---     end
--- end
-
-WindUI:Popup({
-        Title = t,
-        Icon = "info",
-        Content = c,
-        Buttons = {
-            {Title = "Okay", Callback = function() end, Variant = "Primary"}
-        }
-    })
 
 ------------------------------------------------------------------ helpers
 
@@ -353,6 +329,32 @@ Tab2:Button({
     end
 })
 
+Tab2:Button({
+    Title = "MoveFile",
+    Color = Color3.fromHex("#2d2d2d"),
+    Justify = "Center",
+    IconAlign = "Left",
+    Icon = "",
+    Callback = function()
+        for i, path in ipairs(listfiles(OldFolder)) do
+    if isfile(path) then
+        local name = path:match("([^/\\]+)$")
+        local newPath = NewFolder .. "/" .. name
+
+        local ok, err = pcall(function()
+            writefile(newPath, readfile(path))
+            delfile(path)
+        end)
+
+        if ok then
+            print(i, "moved:", name)
+        else
+            warn(i, "failed:", name, err)
+        end
+    end
+end
+    end
+})
 Tab2:Divider()
 
 local Toggle4 = Tab2:Toggle({
