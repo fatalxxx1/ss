@@ -62,14 +62,10 @@ local Tab2 = Window:Tab({Title = "Replay", Icon = "sparkles", Locked = false})
 local Tab3 = Window:Tab({Title = "Webhook", Icon = "sparkles", Locked = true})
 Tab1:Select()
 
-
-
-
-
 ------------------------------------------------------------------ helpers
 
 local function checkjson(file)
-    return type(file) == "string" and file:lower():match("%.json$") ~= nil
+    return type(file) == "string" and file:lower().match("%.json$") ~= nil
 end
 
 local function noti(t, c)
@@ -83,53 +79,16 @@ local function noti(t, c)
     })
 end
 
--- executors expose their own request function; HttpService:RequestAsync
--- is blocked for discord.com inside Roblox
 local httpRequest = request or http_request or (syn and syn.request)
     or (http and http.request) 
 
-local function sendWin(url, discordUserId, title, color, gain)
-    if type(url) ~= "string" or url == "" then return end
-    if not httpRequest then
-        warn("No request function available in this executor")
-        return
-    end
-
-    local id = tostring(discordUserId or ""):gsub("%s+", "")
-    local content = ""
-    if id:match("^%d+$") then content = "<@" .. id .. ">" end
-
-    local payload = {
-        content = content,
-        embeds = {{
-            title = "FACK HUB - " .. tostring(title),
-            description = "Gain : " .. tostring(gain) .. " Coins",
-            color = color,
-        }},
-        attachments = {},
-    }
-
-    local ok, result = pcall(httpRequest, {
-        Url = (url:gsub("%s+", "")),
-        Method = "POST",
-        Headers = {["Content-Type"] = "application/json"},
-        Body = HTTPS:JSONEncode(payload),
-    })
-
-    if not ok then
-        warn("Webhook request failed:", result)
-    elseif result and result.Success == false then
-        warn("Webhook error:", result.StatusCode, result.Body)
-    end
-end
-
--- renamed from readfile(): the old name shadowed the executor's readfile
 local function listJsonFiles()
     local all = {}
+    if not isfolder or not isfolder(CTDFolder) then return all end
     local ok, files = pcall(listfiles, CTDFolder)
     if not ok or type(files) ~= "table" then return all end
     for _, file in ipairs(files) do
-        if file:lower():match("%.json$") then
+        if file:lower().match("%.json$") then
             table.insert(all, (file:match("([^/\\]+)$")))
         end
     end
@@ -173,8 +132,8 @@ end
 
 local Recordfile = nil
 local Replayfile = nil
-local pa = true  -- AutoPlayAgain
-local ws = true  -- AFK (inverse of WhiteScreen toggle)
+local pa = true 
+local ws = true 
 local replayStarted = false
 
 local REPLAY_URL = "https://api.jnkie.com/api/v1/luascripts/public/7173100ba63bc37e17ce9c538fc9daeab551c58b0c0ad8cccf89bf9f795ea1ad/download"
@@ -236,11 +195,10 @@ Tab1:Button({
     IconAlign = "Left",
     Icon = "",
     Callback = function()
-        Dropdown:Refresh(listJsonFiles())
+        local files = listJsonFiles()
+        Dropdown:Refresh(files)
     end
 })
-
-Tab1:Divider()
 
 Tab1:Button({
     Title = "Recorder",
@@ -255,8 +213,6 @@ Tab1:Button({
         end
     end
 })
-
-Dropdown:Refresh(listJsonFiles())
 
 ------------------------------------------------------------------ Replay tab
 
@@ -285,10 +241,7 @@ local Dropdown2 = Tab2:Dropdown({
         end
     end
 })
--- registered BEFORE the replay toggle so the file is restored first on Load()
 myConfig:Register("replayfile", Dropdown2)
-
-Dropdown2:Refresh(listJsonFiles())
 
 Tab2:Button({
     Title = "refresh",
@@ -311,7 +264,7 @@ local Toggle1 = Tab2:Toggle({
     Value = false,
     Callback = function(state)
         if not state then
-            replayStarted = false -- allow starting again later
+            replayStarted = false 
             return
         end
     end
@@ -336,23 +289,30 @@ Tab2:Button({
     IconAlign = "Left",
     Icon = "",
     Callback = function()
-        for i, path in ipairs(listfiles(OldFolder)) do
-    if isfile(path) then
-        local name = path:match("([^/\\]+)$")
-        local newPath = NewFolder .. "/" .. name
-
-        local ok, err = pcall(function()
-            writefile(newPath, readfile(path))
-            delfile(path)
-        end)
-
-        if ok then
-            print(i, "moved:", name)
-        else
-            warn(i, "failed:", name, err)
+        if not isfolder or not isfolder(OldFolder) then 
+            noti("Error", "OldFolder does not exist")
+            return 
         end
-    end
-end
+        for i, path in ipairs(listfiles(OldFolder)) do
+            if isfile(path) then
+                local name = path:match("([^/\\]+)$")
+                local newPath = CTDFolder .. "/" .. name
+
+                local ok, err = pcall(function()
+                    writefile(newPath, readfile(path))
+                    delfile(path)
+                end)
+
+                if ok then
+                    print(i, "moved:", name)
+                else
+                    warn(i, "failed:", name, err)
+                end
+            end
+        end
+        local files = listJsonFiles()
+        Dropdown:Refresh(files)
+        Dropdown2:Refresh(files)
     end
 })
 Tab2:Divider()
@@ -389,14 +349,16 @@ Tab2:Button({
     end
 })
 
-
 ------------------------------------------------------------------ load config
 
 myConfig:Load()
 task.wait(1.5)
 
--- Load() normally fires the callbacks already; startReplay() has a guard
--- so it can't run twice
+-- โหลดค่าเริ่มต้นให้ Dropdown ตอนเปิดสคริปต์ครั้งแรกด้วย
+local initialFiles = listJsonFiles()
+Dropdown:Refresh(initialFiles)
+Dropdown2:Refresh(initialFiles)
+
 if Toggle1.Value == true then
     if startReplay() == false then
         Toggle1:Set(false)
