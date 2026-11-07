@@ -1,15 +1,17 @@
 local OldFolder = "WDMacro"
 local Folder = "FHMacro"
-local CTDFolder = "CTD"
+local CTDFolder = Folder .. "/CTD" -- ชี้ไปที่ FHMacro/CTD โดยตรง
 local HTTPS = game:GetService("HttpService")
 local Players = game:GetService("Players")
 
 -- make sure the macro folder exists so listfiles() doesn't error
-if makefolder and isfolder and not isfolder(Folder) then
-    pcall(makefolder, Folder)
-end
-if makefolder and isfolder and not isfolder(CTDFolder) then
-    pcall(makefolder, CTDFolder)
+if makefolder and isfolder then
+    if not isfolder(Folder) then
+        pcall(makefolder, Folder)
+    end
+    if not isfolder(CTDFolder) then
+        pcall(makefolder, CTDFolder)
+    end
 end
 
 local WindUI = loadstring(game:HttpGet(
@@ -65,7 +67,7 @@ Tab1:Select()
 ------------------------------------------------------------------ helpers
 
 local function checkjson(file)
-    return type(file) == "string" and file:lower().match("%.json$") ~= nil
+    return type(file) == "string" and file:lower():match("%.json$") ~= nil
 end
 
 local function noti(t, c)
@@ -88,7 +90,7 @@ local function listJsonFiles()
     local ok, files = pcall(listfiles, CTDFolder)
     if not ok or type(files) ~= "table" then return all end
     for _, file in ipairs(files) do
-        if file:lower().match("%.json$") then
+        if file:lower():match("%.json$") then
             table.insert(all, (file:match("([^/\\]+)$")))
         end
     end
@@ -354,7 +356,7 @@ Tab2:Button({
 myConfig:Load()
 task.wait(1.5)
 
--- โหลดค่าเริ่มต้นให้ Dropdown ตอนเปิดสคริปต์ครั้งแรกด้วย
+-- โหลดรายชื่อไฟล์ใส่ Dropdown ตั้งแต่เปิดสคริปต์
 local initialFiles = listJsonFiles()
 Dropdown:Refresh(initialFiles)
 Dropdown2:Refresh(initialFiles)
